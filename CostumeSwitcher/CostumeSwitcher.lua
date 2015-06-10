@@ -88,9 +88,7 @@ function CostumeSwitcher:OnDocLoaded()
 		Apollo.RegisterSlashCommand("Costumeswitcher", "OnCostumeSwitcherOn", self)
 		Apollo.RegisterSlashCommand("CostumeSwitcher", "OnCostumeSwitcherOn", self)
 		Apollo.RegisterSlashCommand("costumeSwitcher", "OnCostumeSwitcherOn", self)
-		Apollo.RegisterSlashCommand("cs", "OnCostumeSwitcherOn", self)
-		Apollo.RegisterSlashCommand("csstart", "Activate", self)
-		Apollo.RegisterSlashCommand("csstop", "Deactivate", self)
+		Apollo.RegisterSlashCommand("cswitch", "OnCostumeSwitcherOn", self)
 
 
 		-- Do additional Addon initialization here
@@ -130,11 +128,11 @@ function CostumeSwitcher:OnCostumeSwitcherOn(slash, message)
 	end
 	
 	sendSystemMessage("CostumeSwitcher Commands:")
-	sendSystemMessage("/cs show 	- shows the menu")
-	sendSystemMessage("/cs hide 	- hides the menu")
-	sendSystemMessage("/cs start 	- starts the costume switch")
-	sendSystemMessage("/cs stop 	- stops the costume switch")
-	sendSystemMessage("/cs author 	- shows the addon author")
+	sendSystemMessage("/cswitch show 	- shows the menu")
+	sendSystemMessage("/cswitch hide 	- hides the menu")
+	sendSystemMessage("/cswitch start 	- starts the costume switch")
+	sendSystemMessage("/cswitch stop 	- stops the costume switch")
+	sendSystemMessage("/cswitch author 	- shows the addon author")
 end
 
 
