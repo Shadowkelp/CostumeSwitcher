@@ -20,18 +20,9 @@ local CostumeSwitcher = {}
 -----------------------------------------------------------------------------------------------
 -- Constants
 -----------------------------------------------------------------------------------------------
--- e.g. local kiExampleVariableMax = 999
 
-local costumes = {};
+-- dont cloud the global namespace
 
-local switchActive = false
-
-local cost1 = false
-local cost2 = false
-local cost3 = false
-local cost4 = false
-local cost5 = false
-local cost6 = false
 -----------------------------------------------------------------------------------------------
 -- Initialization
 -----------------------------------------------------------------------------------------------
@@ -39,9 +30,19 @@ function CostumeSwitcher:new(o)
     o = o or {}
     setmetatable(o, self)
     self.__index = self 
-
-    -- initialize variables here
-
+	
+    self.bActive = false
+	self.bFulltimeMode = false
+	self.tActiveCostumes = {}
+	self.tCostumeCheckList = {
+		[1] = false,
+		[2] = false,
+		[3] = false,
+		[4] = false,
+		[5] = false,
+		[6] = false,
+	}
+	
     return o
 end
 
@@ -62,7 +63,6 @@ function CostumeSwitcher:OnLoad()
     -- load our form file
 	self.xmlDoc = XmlDoc.CreateFromFile("CostumeSwitcher.xml")
 	self.xmlDoc:RegisterCallback("OnDocLoaded", self)
-	Apollo.RegisterEventHandler("SystemKeyDown","OnSystemKeyDown", self)
 end
 
 -----------------------------------------------------------------------------------------------
@@ -78,17 +78,20 @@ function CostumeSwitcher:OnDocLoaded()
 		end
 		
 	    self.wndMain:Show(false, true)
-
+	
+		Apollo.RegisterTimerHandler("CostumeSwitcherTimer", "OnCostumeSwitcherTimer", self)
+	
 		-- if the xmlDoc is no longer needed, you should set it to nil
 		-- self.xmlDoc = nil
 		
 		-- Register handlers for events, slash commands and timer, etc.
 		-- e.g. Apollo.RegisterEventHandler("KeyDown", "OnKeyDown", self)
+		Apollo.RegisterEventHandler("WindowManagementReady", "OnWindowManagementReady", self)
+		Apollo.RegisterEventHandler("SystemKeyDown","OnSystemKeyDown", self)
+		
 		Apollo.RegisterSlashCommand("costumeswitcher", "OnCostumeSwitcherOn", self)
-		Apollo.RegisterSlashCommand("Costumeswitcher", "OnCostumeSwitcherOn", self)
-		Apollo.RegisterSlashCommand("CostumeSwitcher", "OnCostumeSwitcherOn", self)
-		Apollo.RegisterSlashCommand("costumeSwitcher", "OnCostumeSwitcherOn", self)
 		Apollo.RegisterSlashCommand("cswitch", "OnCostumeSwitcherOn", self)
+		Apollo.RegisterSlashCommand("csw", "OnCostumeSwitcherOn", self)
 
 
 		-- Do additional Addon initialization here
@@ -100,169 +103,180 @@ end
 -----------------------------------------------------------------------------------------------
 -- Define general functions here
 
+function CostumeSwitcher:OnWindowManagementReady()
+	for i, val in ipairs(self.tCostumeCheckList) do
+		self.wndMain:FindChild("Costume" .. i):SetCheck(val)
+	end
+	self.wndMain:FindChild("FulltimeMode"):SetCheck(self.bFulltimeMode)
+end
+
+function CostumeSwitcher:OnSave(eType)
+	if eType ~= GameLib.CodeEnumAddonSaveLevel.Character then
+        return nil
+    end
+
+	tSave = {
+		tSavedCostumes = self.tCostumeCheckList,
+		bSavedFulltimeMode = self.bFulltimeMode
+	}
+	
+	return tSave
+end
+
+function CostumeSwitcher:OnRestore(eType, tSave)
+	if eType ~= GameLib.CodeEnumAddonSaveLevel.Character then
+        return nil
+    end
+
+	if tSave.tSavedCostumes ~= nil then
+		self.tCostumeCheckList = tSave.tSavedCostumes
+		self.bFulltimeMode =  tSave.bSavedFulltimeMode
+		self:SetActiveCostumes()
+	end
+end
+
 -- on SlashCommand "/costumeswitcher"
-function CostumeSwitcher:OnCostumeSwitcherOn(slash, message)
-	--self.wndMain:Invoke() -- show the window
-	
-	if message == "show" then
+function CostumeSwitcher:OnCostumeSwitcherOn(strSlash, strMessage)
+	if strMessage == "" then
+		self:SendSystemMessage("CostumeSwitcher Commands:")
+		self:SendSystemMessage("/csw show 	- Shows the Menu")
+		self:SendSystemMessage("/csw hide 	- Hides the Menu")
+		self:SendSystemMessage("/csw start 	- Starts the Costume Switcher")
+		self:SendSystemMessage("/csw stop 	- Stops the Costume Switcher")
+		self:SendSystemMessage("/csw author 	- Author/Editor Info")
+	elseif strMessage == "show" then
 		self.wndMain:Invoke()
-		return
-	end
-	if message == "hide" then
+	elseif strMessage == "hide" then
 		self.wndMain:Close()
-		return
+	elseif strMessage == "start" then
+		self:Activate()
+		sendSystemMessage("Costume Switcher is now activated")
+	elseif strMessage == "stop" then
+		self:Deactivate()
+		self:SendSystemMessage("Costume Switcher is now deactivated")
+	elseif strMessage == "author" then
+		self:SendSystemMessage("Author: Turquoise Color")
+		self:SendSystemMessage("Realm : Entity")
+		self:SendSystemMessage("Edited: Doctor House")
+		self:SendSystemMessage("Realm : Entity")
+	else 
+		self:SendSystemMessage("Invalid Command")
 	end
-	if message == "start" then
-		CostumeSwitcher:Activate()
-		sendSystemMessage("Costume Switcher is now active")
-		return
-	end
-	if message == "stop" then
-		CostumeSwitcher:Deactivate()
-		sendSystemMessage("Costume Switcher deactivated")
-		return
-	end
-	if message == "author" then
-		sendSystemMessage("Author: Turquoise Color :: Realm : Entity")
-		return
-	end
-	
-	sendSystemMessage("CostumeSwitcher Commands:")
-	sendSystemMessage("/cswitch show 	- shows the menu")
-	sendSystemMessage("/cswitch hide 	- hides the menu")
-	sendSystemMessage("/cswitch start 	- starts the costume switch")
-	sendSystemMessage("/cswitch stop 	- stops the costume switch")
-	sendSystemMessage("/cswitch author 	- shows the addon author")
 end
 
-
------------------------------------------------------------------------------------------------
--- CostumeSwitcherForm Functions
------------------------------------------------------------------------------------------------
--- when the OK button is clicked
 function CostumeSwitcher:OnOK()
-	CostumeSwitcher:applyChecks()
-	switchActive = true
-	self.wndMain:Close() -- hide the window
+	self:SetActiveCostumes()
+	self.wndMain:Close()
+	self:Activate()
+	sendSystemMessage("Costume Switcher is now activated")
 end
 
--- when the Cancel button is clicked
-function CostumeSwitcher:OnCancel()
-
-	self.wndMain:Close() -- hide the window
-end
-
-function CostumeSwitcher:OnSystemKeyDown(iKey)
-	
-	if switchActive then
-		if iKey == 87 or iKey == 16 or iKey == 65 or iKey == 68 or iKey == 83 then 
-		--CostumesLib.SetCostumeIndex(randomColor) 
-		--randomColor = math.random(#costumes)
-			if next(costumes) ~= nil then
-			CostumesLib.SetCostumeIndex(costumes[ math.random( #costumes ) ] )
-			end
+function CostumeSwitcher:SetActiveCostumes()
+	self.tActiveCostumes = {}
+	local j = 1
+	for i, costume in ipairs(self.tCostumeCheckList) do
+		if costume then
+			self.tActiveCostumes[j] = i;
+			j = j + 1
 		end
 	end
 end
 
-function CostumeSwitcher:applyChecks()
-	local tempCostumes = {}
-	if cost1 == true then
-		table.insert(tempCostumes, 1)
+function CostumeSwitcher:OnCancel()
+	self.wndMain:Close()
+end
+
+function CostumeSwitcher:OnSystemKeyDown(nKey)
+	if self.bActive and not self.bFulltimeMode then
+		if nKey == 87 or nKey == 16 or nKey == 65 or nKey == 68 or nKey == 83 then 
+			CostumesLib.SetCostumeIndex(self.tActiveCostumes[math.random(#self.tActiveCostumes)])
+		end
 	end
-	if cost2 == true then
-		table.insert(tempCostumes, 2)
+end
+
+function CostumeSwitcher:OnCostumeSwitcherTimer()
+	if #self.tActiveCostumes ~= 0 and self.bFulltimeMode then
+		CostumesLib.SetCostumeIndex(self.tActiveCostumes[math.random(#self.tActiveCostumes)])
 	end
-	if cost3 == true then
-		table.insert(tempCostumes, 3)
-	end
-	if cost4 == true then
-		table.insert(tempCostumes, 4)
-	end
-	if cost5 == true then
-		table.insert(tempCostumes, 5)
-	end
-	if cost6 == true then
-		table.insert(tempCostumes, 6)
-	end
-	
-	
-	costumes = tempCostumes
 end
-
-function CostumeSwitcher:costumeCheck1()
-	cost1 = true
-end
-
-function CostumeSwitcher:costumeUnCheck1()
-	cost1 = false
-	
-end
-
-function CostumeSwitcher:costumeCheck2()
-	cost2 = true
-	
-end
-
-function CostumeSwitcher:costumeUnCheck2()
-	cost2 = false
-	
-end
-
-function CostumeSwitcher:costumeCheck3()
-	cost3 = true
-	
-end
-
-function CostumeSwitcher:costumeUnCheck3()
-	cost3 = false
-	
-end
-
-function CostumeSwitcher:costumeCheck4()
-	cost4 = true
-	
-end
-
-function CostumeSwitcher:costumeUnCheck4()
-	cost4 = false
-	
-end
-
-function CostumeSwitcher:costumeCheck5()
-	cost5 = true
-	
-end
-
-function CostumeSwitcher:costumeUnCheck5()
-	cost5 = false
-	
-end
-
-function CostumeSwitcher:costumeCheck6()
-	cost6 = true
-	
-end
-
-function CostumeSwitcher:costumeUnCheck6()
-	cost6 = false
-	
-end
-
 
 function CostumeSwitcher:Activate()
-	switchActive = true
+	self.bActive = true
+	Apollo.CreateTimer("CostumeSwitcherTimer", 0.01, true);
 end
 
 function CostumeSwitcher:Deactivate()
-	switchActive = false
+	self.bActive = false
+	Apollo.StopTimer("CostumeSwitcherTimer")
 end
 
-function sendSystemMessage(message)
-	ChatSystemLib.PostOnChannel(2,"[CostumeSwitcher] " .. message)
+function CostumeSwitcher:SendSystemMessage(strMessage)
+	ChatSystemLib.PostOnChannel(2,"[CostumeSwitcher] " .. strMessage)
 end
+
+-----------------------------------------------------------------------------------------------
+-- CostumeSwitcherForm Functions
+-----------------------------------------------------------------------------------------------
+
+function CostumeSwitcher:costumeCheck1()
+	self.tCostumeCheckList[1] = true
+end
+
+function CostumeSwitcher:costumeUnCheck1()
+	self.tCostumeCheckList[1] = false
+end
+
+function CostumeSwitcher:costumeCheck2()
+	self.tCostumeCheckList[2] = true	
+end
+
+function CostumeSwitcher:costumeUnCheck2()
+	self.tCostumeCheckList[2] = false
+end
+
+function CostumeSwitcher:costumeCheck3()
+	self.tCostumeCheckList[3] = true
+end
+
+function CostumeSwitcher:costumeUnCheck3()
+	self.tCostumeCheckList[3] = false
+end
+
+function CostumeSwitcher:costumeCheck4()
+	self.tCostumeCheckList[4] = true
+end
+
+function CostumeSwitcher:costumeUnCheck4()
+	self.tCostumeCheckList[4] = false
+end
+
+function CostumeSwitcher:costumeCheck5()
+	self.tCostumeCheckList[5] = true
+end
+
+function CostumeSwitcher:costumeUnCheck5()
+	self.tCostumeCheckList[5] = false
+end
+
+function CostumeSwitcher:costumeCheck6()
+	self.tCostumeCheckList[6] = true
+end
+
+function CostumeSwitcher:costumeUnCheck6()
+	self.tCostumeCheckList[6] = false
+end
+
+function CostumeSwitcher:FulltimeModeCheck()
+	self.bFulltimeMode = true 
+end
+
+function CostumeSwitcher:FulltimeModeUncheck()
+	self.bFulltimeMode = false
+end
+
 -----------------------------------------------------------------------------------------------
 -- CostumeSwitcher Instance
 -----------------------------------------------------------------------------------------------
+
 local CostumeSwitcherInst = CostumeSwitcher:new()
 CostumeSwitcherInst:Init()
