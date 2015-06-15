@@ -173,7 +173,7 @@ function CostumeSwitcher:OnOK()
 	self:SetActiveCostumes()
 	self.wndMain:Close()
 	self:Activate()
-	sendSystemMessage("Costume Switcher is now activated")
+	self:SendSystemMessage("Costume Switcher is now activated")
 end
 
 function CostumeSwitcher:SetActiveCostumes()
