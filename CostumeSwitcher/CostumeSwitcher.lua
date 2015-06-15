@@ -21,7 +21,8 @@ local CostumeSwitcher = {}
 -- Constants
 -----------------------------------------------------------------------------------------------
 
--- dont cloud the global namespace
+local cost = 1
+-- temp global
 
 -----------------------------------------------------------------------------------------------
 -- Initialization
@@ -33,6 +34,7 @@ function CostumeSwitcher:new(o)
 	
     self.bActive = false
 	self.bFulltimeMode = false
+	self.bRandomMode = false
 	self.tActiveCostumes = {}
 	self.tCostumeCheckList = {
 		[1] = false,
@@ -108,6 +110,7 @@ function CostumeSwitcher:OnWindowManagementReady()
 		self.wndMain:FindChild("Costume" .. i):SetCheck(val)
 	end
 	self.wndMain:FindChild("FulltimeMode"):SetCheck(self.bFulltimeMode)
+	self.wndMain:FindChild("RandomMode"):SetCheck(self.bRandomMode)
 end
 
 function CostumeSwitcher:OnSave(eType)
@@ -117,7 +120,8 @@ function CostumeSwitcher:OnSave(eType)
 
 	tSave = {
 		tSavedCostumes = self.tCostumeCheckList,
-		bSavedFulltimeMode = self.bFulltimeMode
+		bSavedFulltimeMode = self.bFulltimeMode,
+		bSavedRandomMode = self.bRandomMode
 	}
 	
 	return tSave
@@ -131,6 +135,7 @@ function CostumeSwitcher:OnRestore(eType, tSave)
 	if tSave.tSavedCostumes ~= nil then
 		self.tCostumeCheckList = tSave.tSavedCostumes
 		self.bFulltimeMode =  tSave.bSavedFulltimeMode
+		self.bRandomMode = tSave.bSavedRandomMode
 		self:SetActiveCostumes()
 	end
 end
@@ -189,20 +194,37 @@ end
 function CostumeSwitcher:OnSystemKeyDown(nKey)
 	if self.bActive and not self.bFulltimeMode then
 		if nKey == 87 or nKey == 16 or nKey == 65 or nKey == 68 or nKey == 83 then 
-			CostumesLib.SetCostumeIndex(self.tActiveCostumes[math.random(#self.tActiveCostumes)])
+			if self.bRandomMode == false then
+				CostumesLib.SetCostumeIndex(self.tActiveCostumes[cost])
+				cost = cost+1
+				if cost > #self.tActiveCostumes then
+					cost = 1
+				end
+			elseif self.bRandomMode then
+				CostumesLib.SetCostumeIndex(self.tActiveCostumes[math.random(#self.tActiveCostumes)])
+			end
 		end
 	end
 end
 
 function CostumeSwitcher:OnCostumeSwitcherTimer()
 	if #self.tActiveCostumes ~= 0 and self.bFulltimeMode then
-		CostumesLib.SetCostumeIndex(self.tActiveCostumes[math.random(#self.tActiveCostumes)])
+		--CostumesLib.SetCostumeIndex(self.tActiveCostumes[math.random(#self.tActiveCostumes)])
+		if self.bRandomMode == false then
+			CostumesLib.SetCostumeIndex(self.tActiveCostumes[cost])
+			cost = cost+1
+			if cost > #self.tActiveCostumes then
+				cost = 1
+			end
+		elseif self.bRandomMode then
+			CostumesLib.SetCostumeIndex(self.tActiveCostumes[math.random(#self.tActiveCostumes)])
+		end	
 	end
 end
 
 function CostumeSwitcher:Activate()
 	self.bActive = true
-	Apollo.CreateTimer("CostumeSwitcherTimer", 0.01, true);
+	Apollo.CreateTimer("CostumeSwitcherTimer", 0.60, true);
 end
 
 function CostumeSwitcher:Deactivate()
@@ -272,6 +294,14 @@ end
 
 function CostumeSwitcher:FulltimeModeUncheck()
 	self.bFulltimeMode = false
+end
+
+function CostumeSwitcher:RandomModeCheck()
+	self.bRandomMode = true
+end
+
+function CostumeSwitcher:RandomModeUnCheck()
+	self.bRandomMode = false
 end
 
 -----------------------------------------------------------------------------------------------
