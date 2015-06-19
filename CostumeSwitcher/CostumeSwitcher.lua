@@ -155,7 +155,7 @@ function CostumeSwitcher:OnCostumeSwitcherOn(strSlash, strMessage)
 		self.wndMain:Close()
 	elseif strMessage == "start" then
 		self:Activate()
-		sendSystemMessage("Costume Switcher is now activated")
+		self:SendSystemMessage("Costume Switcher is now activated")
 	elseif strMessage == "stop" then
 		self:Deactivate()
 		self:SendSystemMessage("Costume Switcher is now deactivated")
